@@ -57,28 +57,6 @@ contract MyToken {
         return _balances[_owner];
     }
 
-    function transfer(
-        address _to,
-        uint256 _value
-    ) public returns (bool success) {
-        require(_to != address(0), "ERC20: transfer to the zero address");
-
-        address owner = msg.sender;
-        _transfer(owner, _to, _value);
-        return true;
-    }
-
-    function transferFrom(
-        address _from,
-        address _to,
-        uint256 _value
-    ) public returns (bool success) {
-        address spender = msg.sender;
-        _spendAllowance(_from, spender, _value);
-        _transfer(_from, _to, _value);
-        return true;
-    }
-
     function approve(
         address _spender,
         uint256 _value
@@ -95,9 +73,34 @@ contract MyToken {
         return _allowances[_owner][_spender];
     }
 
-    function _transfer(address from, address to, uint256 amount) internal {
+    function safeTransfer(address to, uint256 amount) public returns (bool) {
+        require(to != address(0), "ERC20: transfer to the zero address");
+
+        uint256 fromBalance = _balances[msg.sender];
+        require(
+            fromBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
+
+        unchecked {
+            _balances[msg.sender] = fromBalance - amount;
+            _balances[to] += amount;
+        }
+
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public returns (bool) {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
+
+        uint256 currentAllowance = _allowances[from][msg.sender];
+        require(currentAllowance >= amount, "ERC20: insufficient allowance");
 
         uint256 fromBalance = _balances[from];
         require(
@@ -106,11 +109,15 @@ contract MyToken {
         );
 
         unchecked {
+            if (currentAllowance != type(uint256).max) {
+                _allowances[from][msg.sender] = currentAllowance - amount;
+            }
             _balances[from] = fromBalance - amount;
             _balances[to] += amount;
         }
 
         emit Transfer(from, to, amount);
+        return true;
     }
 
     function _approve(address owner, address spender, uint256 amount) internal {
