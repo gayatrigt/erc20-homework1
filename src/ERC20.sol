@@ -74,8 +74,6 @@ contract MyToken {
     }
 
     function safeTransfer(address to, uint256 amount) public returns (bool) {
-        require(to != address(0), "ERC20: transfer to the zero address");
-
         uint256 fromBalance = _balances[msg.sender];
         require(
             fromBalance >= amount,
@@ -97,7 +95,6 @@ contract MyToken {
         uint256 amount
     ) public returns (bool) {
         require(from != address(0), "ERC20: transfer from the zero address");
-        require(to != address(0), "ERC20: transfer to the zero address");
 
         uint256 currentAllowance = _allowances[from][msg.sender];
         require(currentAllowance >= amount, "ERC20: insufficient allowance");
