@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 contract MyToken {
+    using SafeERC20 for IERC20;
+
     string private _name;
     string private _symbol;
     uint8 private _decimals;
@@ -57,14 +62,9 @@ contract MyToken {
         uint256 _value
     ) public returns (bool success) {
         require(_to != address(0), "ERC20: transfer to the zero address");
-        require(_balances[msg.sender] >= _value, "ERC20: insufficient balance");
 
-        unchecked {
-            _balances[msg.sender] = _balances[msg.sender] - _value;
-            _balances[_to] = _balances[_to] + _value;
-        }
-
-        emit Transfer(msg.sender, _to, _value);
+        address owner = msg.sender;
+        _transfer(owner, _to, _value);
         return true;
     }
 
@@ -73,23 +73,9 @@ contract MyToken {
         address _to,
         uint256 _value
     ) public returns (bool success) {
-        require(_from != address(0), "ERC20: transfer from the zero address");
-        require(_to != address(0), "ERC20: transfer to the zero address");
-        require(_balances[_from] >= _value, "ERC20: insufficient balance");
-        require(
-            _allowances[_from][msg.sender] >= _value,
-            "ERC20: insufficient allowance"
-        );
-
-        unchecked {
-            _allowances[_from][msg.sender] =
-                _allowances[_from][msg.sender] -
-                _value;
-            _balances[_from] = _balances[_from] - _value;
-            _balances[_to] = _balances[_to] + _value;
-        }
-
-        emit Transfer(_from, _to, _value);
+        address spender = msg.sender;
+        _spendAllowance(_from, spender, _value);
+        _transfer(_from, _to, _value);
         return true;
     }
 
@@ -97,10 +83,8 @@ contract MyToken {
         address _spender,
         uint256 _value
     ) public returns (bool success) {
-        require(_spender != address(0), "ERC20: approve to the zero address");
-
-        _allowances[msg.sender][_spender] = _value;
-        emit Approval(msg.sender, _spender, _value);
+        address owner = msg.sender;
+        _approve(owner, _spender, _value);
         return true;
     }
 
@@ -109,5 +93,48 @@ contract MyToken {
         address _spender
     ) public view returns (uint256 remaining) {
         return _allowances[_owner][_spender];
+    }
+
+    function _transfer(address from, address to, uint256 amount) internal {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+
+        uint256 fromBalance = _balances[from];
+        require(
+            fromBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
+
+        unchecked {
+            _balances[from] = fromBalance - amount;
+            _balances[to] += amount;
+        }
+
+        emit Transfer(from, to, amount);
+    }
+
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            require(
+                currentAllowance >= amount,
+                "ERC20: insufficient allowance"
+            );
+            unchecked {
+                _approve(owner, spender, currentAllowance - amount);
+            }
+        }
     }
 }
